@@ -1,15 +1,11 @@
 /* =============================================================
    PORTFOLIO — Supabase-backed editable portfolio
-   - Projects & site settings stored in Supabase DB
-   - Images stored in Supabase Storage
-   - Password stored in localStorage (simple, not security-critical)
 ============================================================= */
 
 const SUPABASE_URL = CONFIG.supabaseUrl;
 const SUPABASE_KEY = CONFIG.supabaseKey;
 const BUCKET       = CONFIG.bucket;
 
-// ── Supabase helpers ─────────────────────────────────────────
 const headers = {
   'apikey':        SUPABASE_KEY,
   'Authorization': 'Bearer ' + SUPABASE_KEY,
@@ -71,7 +67,6 @@ async function deleteImage(path) {
   });
 }
 
-// ── Site settings (localStorage) ─────────────────────────────
 function getSettings() {
   try {
     const s = localStorage.getItem('portfolio_settings');
@@ -88,11 +83,8 @@ function saveSettings(s) {
 }
 
 let settings = getSettings();
-
-// ── State ─────────────────────────────────────────────────────
 let projects = [];
 
-// ── Init ─────────────────────────────────────────────────────
 async function init() {
   applySettings();
   try {
@@ -104,14 +96,12 @@ async function init() {
   renderPortfolio();
 }
 
-// ── Apply settings to header ──────────────────────────────────
 function applySettings() {
   document.getElementById('display-title').textContent    = settings.title;
   document.getElementById('display-subtitle').textContent = settings.subtitle;
   document.title = settings.title;
 }
 
-// ── Render portfolio ──────────────────────────────────────────
 function renderPortfolio() {
   document.getElementById('loading-screen')?.remove();
 
@@ -126,7 +116,6 @@ function renderPortfolio() {
   }
 
   projects.forEach((proj, i) => {
-    // Tab
     const tab = document.createElement('button');
     tab.className = 'tab' + (i === 0 ? ' active' : '');
     tab.textContent = proj.name || 'Untitled';
@@ -134,7 +123,6 @@ function renderPortfolio() {
     tab.addEventListener('click', () => switchProject(proj.id));
     nav.appendChild(tab);
 
-    // Section
     const section = document.createElement('section');
     section.className = 'project' + (i === 0 ? ' active' : '');
     section.id = 'proj-' + proj.id;
@@ -173,7 +161,6 @@ function switchProject(id) {
   if (sc) setSliderPos(sc, 50);
 }
 
-// ── Slider ────────────────────────────────────────────────────
 function setSliderPos(container, pct) {
   pct = Math.max(0, Math.min(100, pct));
   const after  = container.querySelector('.img-after');
@@ -195,7 +182,6 @@ function initSlider(container) {
   window.addEventListener('touchend',      ()  => { dragging = false; });
 }
 
-// ── Login ─────────────────────────────────────────────────────
 let editorUnlocked = false;
 
 document.getElementById('gear-btn').addEventListener('click', () => {
@@ -227,7 +213,6 @@ function closeLogin() {
   document.getElementById('password-input').value = '';
 }
 
-// ── Editor ────────────────────────────────────────────────────
 function openEditor() {
   populateEditor();
   document.getElementById('editor-panel').classList.add('open');
@@ -237,8 +222,7 @@ document.getElementById('editor-close').addEventListener('click', () => {
   document.getElementById('editor-panel').classList.remove('open');
 });
 
-// Pending image files chosen but not yet uploaded
-let pendingImages = {}; // key: `${projId}-before` or `${projId}-after`
+let pendingImages = {};
 
 function populateEditor() {
   document.getElementById('edit-title').value    = settings.title;
@@ -287,14 +271,12 @@ function renderProjectCards() {
     list.appendChild(card);
   });
 
-  // Remove
   list.querySelectorAll('.btn-remove').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.dataset.id;
       if (!confirm('Remove this project?')) return;
       const proj = projects.find(p => p.id == id);
       if (proj) {
-        // Delete images from storage
         if (proj.before_url) await deleteImage(imagePathFromUrl(proj.before_url));
         if (proj.after_url)  await deleteImage(imagePathFromUrl(proj.after_url));
         await dbDelete(id);
@@ -305,7 +287,6 @@ function renderProjectCards() {
     });
   });
 
-  // Name/desc sync to local array
   list.querySelectorAll('.proj-name').forEach(inp => {
     inp.addEventListener('input', () => {
       const proj = projects.find(p => p.id == inp.dataset.id);
@@ -319,12 +300,10 @@ function renderProjectCards() {
     });
   });
 
-  // Upload button → file input
   list.querySelectorAll('.upload-btn').forEach(btn => {
     btn.addEventListener('click', () => btn.nextElementSibling.click());
   });
 
-  // File chosen → store in pending
   list.querySelectorAll('.file-input').forEach(input => {
     input.addEventListener('change', () => {
       const file = input.files[0];
@@ -338,7 +317,6 @@ function renderProjectCards() {
   });
 }
 
-// Add new project (saves immediately to DB to get an ID)
 document.getElementById('add-project-btn').addEventListener('click', async () => {
   setStatus('Creating project…', 'neutral');
   try {
@@ -359,11 +337,9 @@ document.getElementById('add-project-btn').addEventListener('click', async () =>
   }
 });
 
-// Save all
 document.getElementById('save-btn').addEventListener('click', async () => {
   setStatus('Saving…', 'neutral');
 
-  // Update settings
   settings.title    = document.getElementById('edit-title').value.trim() || settings.title;
   settings.subtitle = document.getElementById('edit-subtitle').value.trim();
   const newPw = document.getElementById('edit-password').value.trim();
@@ -371,7 +347,6 @@ document.getElementById('save-btn').addEventListener('click', async () => {
   saveSettings(settings);
   applySettings();
 
-  // Upload pending images & update projects
   try {
     for (const proj of projects) {
       let updates = { name: proj.name, description: proj.description, sort_order: projects.indexOf(proj) };
@@ -399,7 +374,6 @@ document.getElementById('save-btn').addEventListener('click', async () => {
   }
 });
 
-// ── Helpers ───────────────────────────────────────────────────
 function esc(str) {
   return String(str || '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -407,7 +381,6 @@ function esc(str) {
 }
 
 function imagePathFromUrl(url) {
-  // Extract path after /object/public/portfolio/
   const marker = `/object/public/${BUCKET}/`;
   const idx = url.indexOf(marker);
   return idx !== -1 ? url.slice(idx + marker.length) : '';
@@ -419,5 +392,4 @@ function setStatus(msg, type) {
   el.style.color = type === 'error' ? '#c0504d' : type === 'ok' ? '#7abf8e' : '#aaa';
 }
 
-// ── Go! ───────────────────────────────────────────────────────
 init();
