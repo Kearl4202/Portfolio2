@@ -125,8 +125,8 @@ html, body {
   object-fit: contain;
   pointer-events: none;
 }
-.img-before { z-index: 1; }
-.img-after  { z-index: 2; clip-path: inset(0 50% 0 0); }
+.img-before { z-index: 2; }
+.img-after  { z-index: 1; clip-path: inset(0 50% 0 0); }
 
 .slider-handle {
   position: absolute;
