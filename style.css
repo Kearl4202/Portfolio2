@@ -122,7 +122,7 @@ html, body {
   pointer-events: none;
 }
 .img-before { z-index: 1; }
-.img-after  { z-index: 2; clip-path: inset(0 50% 0 0); }
+.img-after  { z-index: 2; clip-path: inset(0 0 0 50%); }
 
 .slider-handle {
   position: absolute;
