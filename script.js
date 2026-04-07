@@ -176,9 +176,9 @@ function switchProject(id) {
 // ── Slider ────────────────────────────────────────────────────
 function setSliderPos(container, pct) {
   pct = Math.max(0, Math.min(100, pct));
-  const after  = container.querySelector('.img-after');
+  const before = container.querySelector('.img-before');
   const handle = container.querySelector('.slider-handle');
-  if (after)  after.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+  if (before) before.style.clipPath = `inset(0 0 0 ${pct}%)`;
   if (handle) handle.style.left = pct + '%';
 }
 
