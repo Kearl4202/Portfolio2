@@ -12,17 +12,18 @@
 
   <header class="site-header">
     <div>
-      <div class="site-title" id="display-title">Your Studio Name</div>
+      <div class="site-title" id="display-title">Portfolio</div>
       <div class="site-subtitle" id="display-subtitle">Photography &amp; Retouching</div>
     </div>
   </header>
 
-  <nav class="project-nav" id="project-nav">
-    <!-- Tabs injected by JS -->
-  </nav>
+  <nav class="project-nav" id="project-nav"></nav>
 
   <main class="projects-container" id="projects-container">
-    <!-- Projects injected by JS -->
+    <div class="loading-screen" id="loading-screen">
+      <div class="spinner"></div>
+      <p>Loading portfolio…</p>
+    </div>
   </main>
 
   <!-- Gear button -->
@@ -50,7 +51,6 @@
     </div>
     <div class="editor-body">
 
-      <!-- Site settings -->
       <section class="editor-section">
         <h4>Site Info</h4>
         <label>Studio / Site Name
@@ -64,7 +64,6 @@
         </label>
       </section>
 
-      <!-- Projects list -->
       <section class="editor-section">
         <h4>Projects</h4>
         <div id="projects-editor-list"></div>
@@ -76,6 +75,7 @@
     </div>
   </div>
 
+  <script src="config.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
