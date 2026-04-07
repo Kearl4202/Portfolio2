@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portfolio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div>
+      <div class="site-title" id="display-title">Your Studio Name</div>
+      <div class="site-subtitle" id="display-subtitle">Photography &amp; Retouching</div>
+    </div>
+  </header>
+
+  <nav class="project-nav" id="project-nav">
+    <!-- Tabs injected by JS -->
+  </nav>
+
+  <main class="projects-container" id="projects-container">
+    <!-- Projects injected by JS -->
+  </main>
+
+  <!-- Gear button -->
+  <button class="gear-btn" id="gear-btn" title="Edit Site">&#9881;</button>
+
+  <!-- Password modal -->
+  <div class="modal-overlay" id="login-modal">
+    <div class="modal">
+      <h3>Editor Access</h3>
+      <p>Enter your password to edit the site.</p>
+      <input type="password" id="password-input" placeholder="Password" />
+      <div class="modal-actions">
+        <button class="btn-cancel" id="login-cancel">Cancel</button>
+        <button class="btn-primary" id="login-submit">Enter</button>
+      </div>
+      <p class="modal-error" id="login-error"></p>
+    </div>
+  </div>
+
+  <!-- Editor panel -->
+  <div class="editor-panel" id="editor-panel">
+    <div class="editor-header">
+      <span>✏️ Site Editor</span>
+      <button class="editor-close" id="editor-close">✕</button>
+    </div>
+    <div class="editor-body">
+
+      <!-- Site settings -->
+      <section class="editor-section">
+        <h4>Site Info</h4>
+        <label>Studio / Site Name
+          <input type="text" id="edit-title" placeholder="Your Studio Name" />
+        </label>
+        <label>Subtitle
+          <input type="text" id="edit-subtitle" placeholder="Photography & Retouching" />
+        </label>
+        <label>Admin Password
+          <input type="password" id="edit-password" placeholder="Leave blank to keep current" />
+        </label>
+      </section>
+
+      <!-- Projects list -->
+      <section class="editor-section">
+        <h4>Projects</h4>
+        <div id="projects-editor-list"></div>
+        <button class="btn-add" id="add-project-btn">+ Add Project</button>
+      </section>
+
+      <button class="btn-save" id="save-btn">💾 Save All Changes</button>
+      <p class="save-status" id="save-status"></p>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
