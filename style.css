@@ -1,0 +1,319 @@
+/* =============================================================
+   PORTFOLIO — on-site editable with password protection
+   All data lives in localStorage so changes survive page reloads.
+   Images are stored as base64 data URLs (no server upload needed).
+============================================================= */
+
+// ── DEFAULT DATA ─────────────────────────────────────────────
+const DEFAULTS = {
+  password: 'letmein',          // ← starting password (change in editor)
+  title: 'Your Studio Name',
+  subtitle: 'Photography & Retouching',
+  projects: [
+    {
+      id: 'p1',
+      name: 'City Streets',
+      description: 'Before & after colour grading on a downtown shoot.',
+      before: '',   // base64 image or empty
+      after:  '',
+    },
+    {
+      id: 'p2',
+      name: 'Portrait Work',
+      description: 'Skin retouching and background replacement.',
+      before: '',
+      after:  '',
+    },
+  ],
+};
+
+// ── STATE ─────────────────────────────────────────────────────
+function loadState() {
+  try {
+    const saved = localStorage.getItem('portfolio_data');
+    return saved ? JSON.parse(saved) : structuredClone(DEFAULTS);
+  } catch { return structuredClone(DEFAULTS); }
+}
+
+function saveState(state) {
+  localStorage.setItem('portfolio_data', JSON.stringify(state));
+}
+
+let state = loadState();
+
+// ── RENDER PORTFOLIO ──────────────────────────────────────────
+function renderPortfolio() {
+  document.getElementById('display-title').textContent    = state.title;
+  document.getElementById('display-subtitle').textContent = state.subtitle;
+  document.title = state.title;
+
+  const nav  = document.getElementById('project-nav');
+  const main = document.getElementById('projects-container');
+  nav.innerHTML  = '';
+  main.innerHTML = '';
+
+  if (!state.projects.length) {
+    main.innerHTML = '<div style="display:flex;height:100%;align-items:center;justify-content:center;color:#555;font-size:.9rem;letter-spacing:.1em;padding-top:120px">No projects yet — click ⚙ to add one</div>';
+    return;
+  }
+
+  state.projects.forEach((proj, i) => {
+    // Tab
+    const tab = document.createElement('button');
+    tab.className = 'tab' + (i === 0 ? ' active' : '');
+    tab.textContent = proj.name || 'Untitled';
+    tab.dataset.id = proj.id;
+    tab.addEventListener('click', () => switchProject(proj.id));
+    nav.appendChild(tab);
+
+    // Section
+    const section = document.createElement('section');
+    section.className = 'project' + (i === 0 ? ' active' : '');
+    section.id = 'proj-' + proj.id;
+
+    section.innerHTML = `
+      <div class="project-info">
+        <h2>${esc(proj.name || 'Untitled')}</h2>
+        <p>${esc(proj.description || '')}</p>
+      </div>
+      <div class="slider-wrapper">
+        <div class="slider-container" id="slider-${proj.id}">
+          ${proj.before
+            ? `<img class="img-before" src="${proj.before}" alt="Before" />`
+            : `<div class="img-placeholder">Drop before image in editor</div>`}
+          ${proj.after
+            ? `<img class="img-after" src="${proj.after}" alt="After" />`
+            : ''}
+          <div class="slider-handle">
+            <div class="handle-line"></div>
+            <div class="handle-circle">&#8596;</div>
+          </div>
+          <span class="label label-before">BEFORE</span>
+          <span class="label label-after">AFTER</span>
+        </div>
+      </div>`;
+
+    main.appendChild(section);
+    initSlider(document.getElementById('slider-' + proj.id));
+  });
+}
+
+function switchProject(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.id === id));
+  document.querySelectorAll('.project').forEach(p => p.classList.toggle('active', p.id === 'proj-' + id));
+  const sc = document.getElementById('slider-' + id);
+  if (sc) setSliderPos(sc, 50);
+}
+
+// ── SLIDER LOGIC ──────────────────────────────────────────────
+function setSliderPos(container, pct) {
+  pct = Math.max(0, Math.min(100, pct));
+  const after  = container.querySelector('.img-after');
+  const handle = container.querySelector('.slider-handle');
+  if (after)  after.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+  if (handle) handle.style.left = pct + '%';
+}
+
+function initSlider(container) {
+  if (!container) return;
+  let dragging = false;
+  setSliderPos(container, 50);
+
+  const pct = x => ((x - container.getBoundingClientRect().left) / container.offsetWidth) * 100;
+
+  container.addEventListener('mousedown',  e => { dragging = true; setSliderPos(container, pct(e.clientX)); });
+  window.addEventListener('mousemove',     e => { if (dragging) setSliderPos(container, pct(e.clientX)); });
+  window.addEventListener('mouseup',       ()  => { dragging = false; });
+  container.addEventListener('touchstart', e => { dragging = true; setSliderPos(container, pct(e.touches[0].clientX)); }, { passive: true });
+  window.addEventListener('touchmove',     e => { if (dragging) setSliderPos(container, pct(e.touches[0].clientX)); }, { passive: true });
+  window.addEventListener('touchend',      ()  => { dragging = false; });
+}
+
+// ── GEAR / LOGIN ──────────────────────────────────────────────
+let editorUnlocked = false;
+
+document.getElementById('gear-btn').addEventListener('click', () => {
+  if (editorUnlocked) {
+    openEditor();
+  } else {
+    document.getElementById('login-modal').classList.add('open');
+    setTimeout(() => document.getElementById('password-input').focus(), 50);
+  }
+});
+
+document.getElementById('login-cancel').addEventListener('click', closeLogin);
+document.getElementById('login-submit').addEventListener('click', tryLogin);
+document.getElementById('password-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') tryLogin();
+});
+
+function tryLogin() {
+  const val = document.getElementById('password-input').value;
+  if (val === state.password) {
+    editorUnlocked = true;
+    document.getElementById('password-input').value = '';
+    document.getElementById('login-error').textContent = '';
+    closeLogin();
+    openEditor();
+  } else {
+    document.getElementById('login-error').textContent = 'Incorrect password.';
+    document.getElementById('password-input').value = '';
+    document.getElementById('password-input').focus();
+  }
+}
+
+function closeLogin() {
+  document.getElementById('login-modal').classList.remove('open');
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('password-input').value = '';
+}
+
+// ── EDITOR PANEL ──────────────────────────────────────────────
+function openEditor() {
+  populateEditor();
+  document.getElementById('editor-panel').classList.add('open');
+}
+
+document.getElementById('editor-close').addEventListener('click', () => {
+  document.getElementById('editor-panel').classList.remove('open');
+});
+
+function populateEditor() {
+  document.getElementById('edit-title').value    = state.title;
+  document.getElementById('edit-subtitle').value = state.subtitle;
+  document.getElementById('edit-password').value = '';
+  renderProjectCards();
+}
+
+function renderProjectCards() {
+  const list = document.getElementById('projects-editor-list');
+  list.innerHTML = '';
+
+  state.projects.forEach((proj, idx) => {
+    const card = document.createElement('div');
+    card.className = 'project-editor-card';
+    card.dataset.idx = idx;
+
+    card.innerHTML = `
+      <div class="project-editor-card-header">
+        <span>Project ${idx + 1}</span>
+        <button class="btn-remove" data-idx="${idx}">Remove</button>
+      </div>
+      <label>Tab Name
+        <input type="text" class="proj-name" data-idx="${idx}" value="${esc(proj.name)}" placeholder="e.g. City Streets" />
+      </label>
+      <label>Description
+        <textarea class="proj-desc" data-idx="${idx}" placeholder="Short description shown under the title.">${esc(proj.description)}</textarea>
+      </label>
+      <div class="image-upload-row">
+        <div class="image-upload-box">
+          <span>Before</span>
+          <div class="upload-btn ${proj.before ? 'has-image' : ''}" data-target="before" data-idx="${idx}">
+            ${proj.before ? '✔ Image set' : 'Click to upload'}
+          </div>
+          <input type="file" class="file-input" accept="image/*" data-target="before" data-idx="${idx}" />
+        </div>
+        <div class="image-upload-box">
+          <span>After</span>
+          <div class="upload-btn ${proj.after ? 'has-image' : ''}" data-target="after" data-idx="${idx}">
+            ${proj.after ? '✔ Image set' : 'Click to upload'}
+          </div>
+          <input type="file" class="file-input" accept="image/*" data-target="after" data-idx="${idx}" />
+        </div>
+      </div>`;
+
+    list.appendChild(card);
+  });
+
+  // Remove buttons
+  list.querySelectorAll('.btn-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      state.projects.splice(idx, 1);
+      renderProjectCards();
+    });
+  });
+
+  // Name / desc live sync
+  list.querySelectorAll('.proj-name').forEach(inp => {
+    inp.addEventListener('input', () => {
+      state.projects[parseInt(inp.dataset.idx)].name = inp.value;
+    });
+  });
+  list.querySelectorAll('.proj-desc').forEach(ta => {
+    ta.addEventListener('input', () => {
+      state.projects[parseInt(ta.dataset.idx)].description = ta.value;
+    });
+  });
+
+  // Upload buttons → trigger hidden file input
+  list.querySelectorAll('.upload-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const fileInput = btn.nextElementSibling;
+      fileInput.click();
+    });
+  });
+
+  // File inputs → read as base64
+  list.querySelectorAll('.file-input').forEach(input => {
+    input.addEventListener('change', () => {
+      const file = input.files[0];
+      if (!file) return;
+      const idx    = parseInt(input.dataset.idx);
+      const target = input.dataset.target; // 'before' or 'after'
+      const reader = new FileReader();
+      reader.onload = e => {
+        state.projects[idx][target] = e.target.result;
+        // Update button appearance immediately
+        const uploadBtn = input.previousElementSibling;
+        uploadBtn.textContent = '✔ ' + file.name.slice(0, 18);
+        uploadBtn.classList.add('has-image');
+      };
+      reader.readAsDataURL(file);
+    });
+  });
+}
+
+// Add project
+document.getElementById('add-project-btn').addEventListener('click', () => {
+  state.projects.push({
+    id: 'p' + Date.now(),
+    name: 'New Project',
+    description: '',
+    before: '',
+    after:  '',
+  });
+  renderProjectCards();
+  // Scroll to bottom of editor
+  document.getElementById('projects-editor-list').lastElementChild?.scrollIntoView({ behavior: 'smooth' });
+});
+
+// Save
+document.getElementById('save-btn').addEventListener('click', () => {
+  // Pull title/subtitle
+  state.title    = document.getElementById('edit-title').value.trim() || state.title;
+  state.subtitle = document.getElementById('edit-subtitle').value.trim();
+
+  // Password change
+  const newPw = document.getElementById('edit-password').value;
+  if (newPw.trim()) state.password = newPw.trim();
+
+  saveState(state);
+  renderPortfolio();
+
+  const status = document.getElementById('save-status');
+  status.textContent = '✔ Changes saved!';
+  setTimeout(() => status.textContent = '', 2500);
+});
+
+// ── HELPERS ──────────────────────────────────────────────────
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+renderPortfolio();
