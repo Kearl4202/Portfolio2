@@ -19,7 +19,6 @@ html, body {
   overflow: hidden;
 }
 
-/* ── HEADER ── */
 .site-header {
   position: fixed;
   top: 0; left: 0; right: 0;
@@ -43,7 +42,6 @@ html, body {
   margin-top: 2px;
 }
 
-/* ── NAV ── */
 .project-nav {
   position: fixed;
   top: 66px; left: 0; right: 0;
@@ -73,7 +71,6 @@ html, body {
 .tab:hover { color: var(--text); }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-/* ── PROJECTS ── */
 .projects-container {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -102,7 +99,6 @@ html, body {
   margin-top: 3px;
 }
 
-/* ── SLIDER ── */
 .slider-wrapper {
   flex: 1;
   display: flex;
@@ -125,8 +121,8 @@ html, body {
   object-fit: contain;
   pointer-events: none;
 }
-.img-before { z-index: 2; }
-.img-after  { z-index: 1; clip-path: inset(0 50% 0 0); }
+.img-before { z-index: 1; }
+.img-after  { z-index: 2; clip-path: inset(0 50% 0 0); }
 
 .slider-handle {
   position: absolute;
@@ -191,7 +187,6 @@ html, body {
   padding-top: 120px;
 }
 
-/* Spinner */
 .spinner {
   width: 32px; height: 32px;
   border: 2px solid var(--border);
@@ -201,7 +196,6 @@ html, body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── GEAR ── */
 .gear-btn {
   position: fixed;
   bottom: 22px; right: 22px;
@@ -219,7 +213,6 @@ html, body {
 }
 .gear-btn:hover { color: var(--accent); border-color: var(--accent); transform: rotate(45deg); }
 
-/* ── MODAL ── */
 .modal-overlay {
   display: none;
   position: fixed; inset: 0;
@@ -275,7 +268,6 @@ html, body {
 .btn-primary:hover { opacity: .85; }
 .modal-error { color: #c0504d; font-size: .76rem; min-height: 1em; }
 
-/* ── EDITOR PANEL ── */
 .editor-panel {
   position: fixed;
   top: 0; right: 0; bottom: 0;
