@@ -165,7 +165,7 @@ function setSliderPos(container, pct) {
   pct = Math.max(0, Math.min(100, pct));
   const after  = container.querySelector('.img-after');
   const handle = container.querySelector('.slider-handle');
-  if (after)  after.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+  if (after)  after.style.clipPath = `inset(0 0 0 ${pct}%)`;
   if (handle) handle.style.left = pct + '%';
 }
 
