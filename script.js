@@ -1,5 +1,5 @@
 /* =============================================================
-   PORTFOLIO — Supabase-backed editable portfolio
+   PORTFOLIO — Supabase-backed with gallery
 ============================================================= */
 
 const SUPABASE_URL = CONFIG.supabaseUrl;
@@ -12,6 +12,7 @@ const headers = {
   'Content-Type':  'application/json',
 };
 
+// ── Supabase DB ───────────────────────────────────────────────
 async function dbSelect() {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/projects?order=sort_order.asc`, { headers });
   if (!res.ok) throw new Error(await res.text());
@@ -45,55 +46,72 @@ async function dbDelete(id) {
   if (!res.ok) throw new Error(await res.text());
 }
 
+// ── Photos DB ────────────────────────────────────────────────
+async function photosSelect(projectId) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/photos?project_id=eq.${projectId}&order=sort_order.asc`, { headers });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function photosInsert(row) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/photos`, {
+    method: 'POST',
+    headers: { ...headers, 'Prefer': 'return=representation' },
+    body: JSON.stringify(row),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function photosDelete(id) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/photos?id=eq.${id}`, {
+    method: 'DELETE', headers,
+  });
+  if (!res.ok) throw new Error(await res.text());
+}
+
+// ── Storage ───────────────────────────────────────────────────
 async function uploadImage(file, path) {
-  const uploadHeaders = {
-    'apikey':        SUPABASE_KEY,
-    'Authorization': 'Bearer ' + SUPABASE_KEY,
-    'Content-Type':  file.type,
-    'Cache-Control': '3600',
-  };
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
     method: 'POST',
-    headers: uploadHeaders,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': file.type,
+      'Cache-Control': '3600',
+    },
     body: file,
   });
   if (!res.ok) throw new Error(await res.text());
   return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;
 }
 
-async function deleteImage(path) {
+async function deleteStorageImage(path) {
   await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
     method: 'DELETE', headers,
   });
 }
 
+// ── Settings ──────────────────────────────────────────────────
 function getSettings() {
   try {
     const s = localStorage.getItem('portfolio_settings');
-    return s ? JSON.parse(s) : {
-      password: CONFIG.adminPassword,
-      title:    CONFIG.siteTitle,
-      subtitle: CONFIG.siteSubtitle,
-    };
+    return s ? JSON.parse(s) : { password: CONFIG.adminPassword, title: CONFIG.siteTitle, subtitle: CONFIG.siteSubtitle };
   } catch { return { password: CONFIG.adminPassword, title: CONFIG.siteTitle, subtitle: CONFIG.siteSubtitle }; }
 }
-
-function saveSettings(s) {
-  localStorage.setItem('portfolio_settings', JSON.stringify(s));
-}
+function saveSettings(s) { localStorage.setItem('portfolio_settings', JSON.stringify(s)); }
 
 let settings = getSettings();
 let projects = [];
+let pendingImages = {};
+let pendingPhotos = {}; // projectId -> [File, ...]
 
+// ── Init ──────────────────────────────────────────────────────
 async function init() {
   applySettings();
-  try {
-    projects = await dbSelect();
-  } catch (e) {
-    console.error('Could not load projects:', e);
-    projects = [];
-  }
+  try { projects = await dbSelect(); } catch (e) { projects = []; }
   renderPortfolio();
+  renderSidebar();
 }
 
 function applySettings() {
@@ -102,9 +120,99 @@ function applySettings() {
   document.title = settings.title;
 }
 
+// ── Sidebar ───────────────────────────────────────────────────
+document.getElementById('hamburger-btn').addEventListener('click', openSidebar);
+document.getElementById('sidebar-close').addEventListener('click', closeSidebar);
+document.getElementById('sidebar-overlay').addEventListener('click', closeSidebar);
+
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebar-overlay').classList.add('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+}
+
+function renderSidebar() {
+  const list = document.getElementById('sidebar-list');
+  list.innerHTML = '';
+  projects.forEach(proj => {
+    const item = document.createElement('div');
+    item.className = 'sidebar-project';
+    item.innerHTML = `
+      <div class="sidebar-project-name">
+        <span>${esc(proj.name || 'Untitled')}</span>
+        <button class="sidebar-photos-btn" data-id="${proj.id}">📁 Photos</button>
+      </div>`;
+    // Click project name → switch to that project
+    item.querySelector('.sidebar-project-name span').addEventListener('click', () => {
+      switchProject(proj.id);
+      closeSidebar();
+    });
+    // Click photos button → open gallery
+    item.querySelector('.sidebar-photos-btn').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      closeSidebar();
+      await openGallery(proj);
+    });
+    list.appendChild(item);
+  });
+}
+
+// ── Gallery ───────────────────────────────────────────────────
+let galleryPhotos = [];
+let galleryIndex  = 0;
+
+async function openGallery(proj) {
+  try {
+    galleryPhotos = await photosSelect(proj.id);
+  } catch (e) {
+    galleryPhotos = [];
+  }
+
+  if (!galleryPhotos.length) {
+    alert('No photos yet for this project. Add some in the ⚙ editor!');
+    return;
+  }
+
+  document.getElementById('gallery-title').textContent = proj.name + ' — Photos';
+  galleryIndex = 0;
+  showGalleryPhoto();
+  document.getElementById('gallery-overlay').classList.add('open');
+}
+
+function showGalleryPhoto() {
+  const photo = galleryPhotos[galleryIndex];
+  document.getElementById('gallery-img').src = photo.url;
+  document.getElementById('gallery-counter').textContent = `${galleryIndex + 1} / ${galleryPhotos.length}`;
+}
+
+document.getElementById('gallery-close').addEventListener('click', () => {
+  document.getElementById('gallery-overlay').classList.remove('open');
+});
+
+document.getElementById('gallery-prev').addEventListener('click', () => {
+  galleryIndex = (galleryIndex - 1 + galleryPhotos.length) % galleryPhotos.length;
+  showGalleryPhoto();
+});
+
+document.getElementById('gallery-next').addEventListener('click', () => {
+  galleryIndex = (galleryIndex + 1) % galleryPhotos.length;
+  showGalleryPhoto();
+});
+
+// Keyboard arrows
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('gallery-overlay').classList.contains('open')) return;
+  if (e.key === 'ArrowLeft')  { galleryIndex = (galleryIndex - 1 + galleryPhotos.length) % galleryPhotos.length; showGalleryPhoto(); }
+  if (e.key === 'ArrowRight') { galleryIndex = (galleryIndex + 1) % galleryPhotos.length; showGalleryPhoto(); }
+  if (e.key === 'Escape') document.getElementById('gallery-overlay').classList.remove('open');
+});
+
+// ── Portfolio render ──────────────────────────────────────────
 function renderPortfolio() {
   document.getElementById('loading-screen')?.remove();
-
   const nav  = document.getElementById('project-nav');
   const main = document.getElementById('projects-container');
   nav.innerHTML  = '';
@@ -116,17 +224,31 @@ function renderPortfolio() {
   }
 
   projects.forEach((proj, i) => {
+    // Tab + photos button
+    const tabWrap = document.createElement('div');
+    tabWrap.style.display = 'flex';
+    tabWrap.style.alignItems = 'center';
+
     const tab = document.createElement('button');
     tab.className = 'tab' + (i === 0 ? ' active' : '');
     tab.textContent = proj.name || 'Untitled';
     tab.dataset.id = proj.id;
     tab.addEventListener('click', () => switchProject(proj.id));
-    nav.appendChild(tab);
 
+    const photosBtn = document.createElement('button');
+    photosBtn.className = 'tab-photos-btn';
+    photosBtn.textContent = '📁';
+    photosBtn.title = 'View photos';
+    photosBtn.addEventListener('click', async () => await openGallery(proj));
+
+    tabWrap.appendChild(tab);
+    tabWrap.appendChild(photosBtn);
+    nav.appendChild(tabWrap);
+
+    // Section
     const section = document.createElement('section');
     section.className = 'project' + (i === 0 ? ' active' : '');
     section.id = 'proj-' + proj.id;
-
     section.innerHTML = `
       <div class="project-info">
         <h2>${esc(proj.name || 'Untitled')}</h2>
@@ -148,7 +270,6 @@ function renderPortfolio() {
           <span class="label label-after">AFTER</span>
         </div>
       </div>`;
-
     main.appendChild(section);
     initSlider(document.getElementById('slider-' + proj.id));
   });
@@ -161,6 +282,7 @@ function switchProject(id) {
   if (sc) setSliderPos(sc, 50);
 }
 
+// ── Slider ────────────────────────────────────────────────────
 function setSliderPos(container, pct) {
   pct = Math.max(0, Math.min(100, pct));
   const after  = container.querySelector('.img-after');
@@ -182,6 +304,7 @@ function initSlider(container) {
   window.addEventListener('touchend',      ()  => { dragging = false; });
 }
 
+// ── Login ─────────────────────────────────────────────────────
 let editorUnlocked = false;
 
 document.getElementById('gear-btn').addEventListener('click', () => {
@@ -189,7 +312,6 @@ document.getElementById('gear-btn').addEventListener('click', () => {
   document.getElementById('login-modal').classList.add('open');
   setTimeout(() => document.getElementById('password-input').focus(), 50);
 });
-
 document.getElementById('login-cancel').addEventListener('click', closeLogin);
 document.getElementById('login-submit').addEventListener('click', tryLogin);
 document.getElementById('password-input').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
@@ -206,40 +328,41 @@ function tryLogin() {
     document.getElementById('password-input').focus();
   }
 }
-
 function closeLogin() {
   document.getElementById('login-modal').classList.remove('open');
   document.getElementById('login-error').textContent = '';
   document.getElementById('password-input').value = '';
 }
 
+// ── Editor ────────────────────────────────────────────────────
 function openEditor() {
   populateEditor();
   document.getElementById('editor-panel').classList.add('open');
 }
-
 document.getElementById('editor-close').addEventListener('click', () => {
   document.getElementById('editor-panel').classList.remove('open');
 });
-
-let pendingImages = {};
 
 function populateEditor() {
   document.getElementById('edit-title').value    = settings.title;
   document.getElementById('edit-subtitle').value = settings.subtitle;
   document.getElementById('edit-password').value = '';
   pendingImages = {};
+  pendingPhotos = {};
   renderProjectCards();
 }
 
-function renderProjectCards() {
+async function renderProjectCards() {
   const list = document.getElementById('projects-editor-list');
   list.innerHTML = '';
 
-  projects.forEach((proj, idx) => {
+  for (const [idx, proj] of projects.entries()) {
+    // Load existing photos for this project
+    let existingPhotos = [];
+    try { existingPhotos = await photosSelect(proj.id); } catch (e) {}
+
     const card = document.createElement('div');
     card.className = 'project-editor-card';
-
     card.innerHTML = `
       <div class="project-editor-card-header">
         <span>Project ${idx + 1}</span>
@@ -255,38 +378,61 @@ function renderProjectCards() {
         <div class="image-upload-box">
           <span>Before</span>
           <div class="upload-btn ${proj.before_url ? 'has-image' : ''}" data-target="before" data-id="${proj.id}">
-            ${pendingImages[proj.id+'-before'] ? '📁 ' + pendingImages[proj.id+'-before'].name.slice(0,14) : proj.before_url ? '✔ Image set' : 'Click to upload'}
+            ${proj.before_url ? '✔ Image set' : 'Click to upload'}
           </div>
           <input type="file" class="file-input" accept="image/*" data-target="before" data-id="${proj.id}" />
         </div>
         <div class="image-upload-box">
           <span>After</span>
           <div class="upload-btn ${proj.after_url ? 'has-image' : ''}" data-target="after" data-id="${proj.id}">
-            ${pendingImages[proj.id+'-after'] ? '📁 ' + pendingImages[proj.id+'-after'].name.slice(0,14) : proj.after_url ? '✔ Image set' : 'Click to upload'}
+            ${proj.after_url ? '✔ Image set' : 'Click to upload'}
           </div>
           <input type="file" class="file-input" accept="image/*" data-target="after" data-id="${proj.id}" />
         </div>
+      </div>
+      <div class="gallery-editor">
+        <div class="gallery-editor-title">📁 Gallery Photos</div>
+        <div class="gallery-editor-photos" id="gallery-thumbs-${proj.id}"></div>
+        <button class="btn-add-photos" data-id="${proj.id}">+ Add Photos</button>
+        <input type="file" class="gallery-file-input" accept="image/*" multiple data-id="${proj.id}" style="display:none" />
       </div>`;
 
     list.appendChild(card);
-  });
 
+    // Render existing photo thumbs
+    const thumbsContainer = document.getElementById(`gallery-thumbs-${proj.id}`);
+    existingPhotos.forEach(photo => {
+      addPhotoThumb(thumbsContainer, photo.url, photo.id, proj.id, true);
+    });
+
+    // Render pending photo thumbs
+    if (pendingPhotos[proj.id]) {
+      pendingPhotos[proj.id].forEach(file => {
+        const url = URL.createObjectURL(file);
+        addPhotoThumb(thumbsContainer, url, null, proj.id, false);
+      });
+    }
+  }
+
+  // Remove project
   list.querySelectorAll('.btn-remove').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const id = btn.dataset.id;
       if (!confirm('Remove this project?')) return;
+      const id = btn.dataset.id;
       const proj = projects.find(p => p.id == id);
       if (proj) {
-        if (proj.before_url) await deleteImage(imagePathFromUrl(proj.before_url));
-        if (proj.after_url)  await deleteImage(imagePathFromUrl(proj.after_url));
+        if (proj.before_url) await deleteStorageImage(imagePathFromUrl(proj.before_url));
+        if (proj.after_url)  await deleteStorageImage(imagePathFromUrl(proj.after_url));
         await dbDelete(id);
         projects = projects.filter(p => p.id != id);
       }
       renderProjectCards();
       renderPortfolio();
+      renderSidebar();
     });
   });
 
+  // Name/desc
   list.querySelectorAll('.proj-name').forEach(inp => {
     inp.addEventListener('input', () => {
       const proj = projects.find(p => p.id == inp.dataset.id);
@@ -300,10 +446,10 @@ function renderProjectCards() {
     });
   });
 
+  // Before/after upload
   list.querySelectorAll('.upload-btn').forEach(btn => {
     btn.addEventListener('click', () => btn.nextElementSibling.click());
   });
-
   list.querySelectorAll('.file-input').forEach(input => {
     input.addEventListener('change', () => {
       const file = input.files[0];
@@ -315,28 +461,67 @@ function renderProjectCards() {
       uploadBtn.classList.add('has-image');
     });
   });
+
+  // Gallery add photos
+  list.querySelectorAll('.btn-add-photos').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.nextElementSibling.click();
+    });
+  });
+  list.querySelectorAll('.gallery-file-input').forEach(input => {
+    input.addEventListener('change', () => {
+      const projId = input.dataset.id;
+      if (!pendingPhotos[projId]) pendingPhotos[projId] = [];
+      const thumbsContainer = document.getElementById(`gallery-thumbs-${projId}`);
+      Array.from(input.files).forEach(file => {
+        pendingPhotos[projId].push(file);
+        const url = URL.createObjectURL(file);
+        addPhotoThumb(thumbsContainer, url, null, projId, false);
+      });
+      input.value = '';
+    });
+  });
 }
 
+function addPhotoThumb(container, url, dbId, projId, isSaved) {
+  const thumb = document.createElement('div');
+  thumb.className = 'gallery-thumb';
+  thumb.innerHTML = `
+    <img src="${url}" alt="photo" />
+    <button class="gallery-thumb-remove" title="Remove">✕</button>`;
+  thumb.querySelector('.gallery-thumb-remove').addEventListener('click', async () => {
+    if (isSaved && dbId) {
+      if (!confirm('Delete this photo?')) return;
+      await photosDelete(dbId);
+    } else {
+      // Remove from pending
+      const idx = pendingPhotos[projId]?.findIndex(f => URL.createObjectURL(f) === url);
+      if (idx !== undefined && idx > -1) pendingPhotos[projId].splice(idx, 1);
+    }
+    thumb.remove();
+  });
+  container.appendChild(thumb);
+}
+
+// Add project
 document.getElementById('add-project-btn').addEventListener('click', async () => {
   setStatus('Creating project…', 'neutral');
   try {
     const rows = await dbInsert({
-      name: 'New Project',
-      description: '',
-      before_url: null,
-      after_url: null,
+      name: 'New Project', description: '',
+      before_url: null, after_url: null,
       sort_order: projects.length,
     });
     projects.push(rows[0]);
     renderProjectCards();
     renderPortfolio();
-    setStatus('Project added — upload images and save!', 'ok');
+    renderSidebar();
+    setStatus('Project added!', 'ok');
     document.getElementById('projects-editor-list').lastElementChild?.scrollIntoView({ behavior: 'smooth' });
-  } catch (e) {
-    setStatus('Error: ' + e.message, 'error');
-  }
+  } catch (e) { setStatus('Error: ' + e.message, 'error'); }
 });
 
+// Save
 document.getElementById('save-btn').addEventListener('click', async () => {
   setStatus('Saving…', 'neutral');
 
@@ -351,6 +536,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     for (const proj of projects) {
       let updates = { name: proj.name, description: proj.description, sort_order: projects.indexOf(proj) };
 
+      // Before/after images
       for (const target of ['before', 'after']) {
         const key  = proj.id + '-' + target;
         const file = pendingImages[key];
@@ -363,29 +549,36 @@ document.getElementById('save-btn').addEventListener('click', async () => {
       }
 
       await dbUpdate(proj.id, updates);
+
+      // Gallery photos
+      const photos = pendingPhotos[proj.id] || [];
+      for (const [i, file] of photos.entries()) {
+        const path = `${proj.id}/gallery-${Date.now()}-${i}.${file.name.split('.').pop()}`;
+        const url  = await uploadImage(file, path);
+        await photosInsert({ project_id: proj.id, url, sort_order: i });
+      }
+      pendingPhotos[proj.id] = [];
     }
 
     pendingImages = {};
     renderPortfolio();
-    renderProjectCards();
+    renderSidebar();
+    await renderProjectCards();
     setStatus('✔ All changes saved!', 'ok');
-  } catch (e) {
-    setStatus('Error saving: ' + e.message, 'error');
-  }
+  } catch (e) { setStatus('Error: ' + e.message, 'error'); }
 });
 
+// ── Helpers ───────────────────────────────────────────────────
 function esc(str) {
   return String(str || '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-
 function imagePathFromUrl(url) {
   const marker = `/object/public/${BUCKET}/`;
   const idx = url.indexOf(marker);
   return idx !== -1 ? url.slice(idx + marker.length) : '';
 }
-
 function setStatus(msg, type) {
   const el = document.getElementById('save-status');
   el.textContent = msg;
