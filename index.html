@@ -10,6 +10,19 @@
 </head>
 <body>
 
+  <!-- Hamburger -->
+  <button class="hamburger-btn" id="hamburger-btn">&#9776;</button>
+
+  <!-- Sidebar overlay + panel -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span>Projects</span>
+      <button class="sidebar-close" id="sidebar-close">✕</button>
+    </div>
+    <div class="sidebar-list" id="sidebar-list"></div>
+  </div>
+
   <header class="site-header">
     <div>
       <div class="site-title" id="display-title">Portfolio</div>
@@ -25,6 +38,22 @@
       <p>Loading portfolio…</p>
     </div>
   </main>
+
+  <!-- Photo gallery popup -->
+  <div class="gallery-overlay" id="gallery-overlay">
+    <div class="gallery-popup">
+      <div class="gallery-top">
+        <span class="gallery-title" id="gallery-title">Photos</span>
+        <button class="gallery-close" id="gallery-close">✕</button>
+      </div>
+      <div class="gallery-stage">
+        <button class="gallery-arrow gallery-prev" id="gallery-prev">&#8592;</button>
+        <img class="gallery-img" id="gallery-img" src="" alt="Photo" />
+        <button class="gallery-arrow gallery-next" id="gallery-next">&#8594;</button>
+      </div>
+      <div class="gallery-counter" id="gallery-counter"></div>
+    </div>
+  </div>
 
   <!-- Gear button -->
   <button class="gear-btn" id="gear-btn" title="Edit Site">&#9881;</button>
