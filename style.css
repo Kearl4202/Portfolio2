@@ -647,3 +647,78 @@ html, body {
   min-height: 1.2em; letter-spacing: .06em;
   color: #7abf8e;
 }
+
+/* ── PAIRS ── */
+.pairs-wrapper {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+.pair-slide {
+  display: none;
+  height: 100%;
+}
+.pair-slide.active { display: flex; }
+.pair-slide .slider-container {
+  position: relative;
+  width: 100%; height: 100%;
+  overflow: hidden;
+  border-radius: 4px;
+  cursor: ew-resize;
+  user-select: none;
+  background: #111;
+}
+.pairs-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 10px 0 16px;
+  flex-shrink: 0;
+}
+.pairs-arrow {
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 50%;
+  color: var(--text);
+  font-size: 16px;
+  width: 36px; height: 36px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .2s;
+}
+.pairs-arrow:hover { background: rgba(255,255,255,.18); }
+.pairs-dots { display: flex; gap: 8px; align-items: center; }
+.pair-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  cursor: pointer;
+  transition: background .2s, transform .2s;
+}
+.pair-dot.active { background: var(--accent); transform: scale(1.3); }
+
+/* pair editor card */
+.pair-editor-card {
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+.pair-editor-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: .68rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+}
+.btn-add-pair {
+  width: 100%; background: none;
+  border: 1px dashed var(--border);
+  border-radius: 4px; color: var(--muted);
+  font-family: 'Jost', sans-serif;
+  font-size: .72rem; letter-spacing: .08em; text-transform: uppercase;
+  padding: 8px; cursor: pointer; margin-top: 4px;
+  transition: border-color .2s, color .2s;
+}
+.btn-add-pair:hover { border-color: var(--accent); color: var(--accent); }
